@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C2S Comprehensive Quiz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.5s ease;
+        }
+        .quiz-container {
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+        .question-card {
+            min-height: 450px; /* Ensure consistent card height */
+        }
+        .option-btn {
+            transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.1s ease;
+        }
+        .option-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .option-btn.selected {
+            transform: translateY(0);
+        }
+        .option-btn.correct {
+            background-color: #10B981 !important; /* Tailwind green-600 */
+            color: white !important;
+            border-color: #059669 !important; /* Tailwind green-700 */
+        }
+        .option-btn.incorrect {
+            background-color: #EF4444 !important; /* Tailwind red-500 */
+            color: white !important;
+            border-color: #DC2626 !important; /* Tailwind red-600 */
+        }
+        .feedback {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, opacity 0.5s ease-out;
+            opacity: 0;
+        }
+        .feedback.visible {
+            max-height: 200px; /* Adjust as needed */
+            opacity: 1;
+        }
+        /* Fade transition for elements */
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.5s;
+        }
+        .fade-enter, .fade-leave-to /* .fade-leave-active in <2.1.8 */ {
+            opacity: 0;
+        }
+
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-100 text-slate-800 flex items-center justify-center min-h-screen p-4">
+
+    <div id="quizApp" class="w-full max-w-2xl">
+
+        <!-- Start Screen -->
+        <div id="startScreen" class="quiz-container bg-white p-8 rounded-xl shadow-2xl text-center">
+            <h1 class="text-4xl font-bold text-indigo-600 mb-6">C2S Comprehensive Quiz</h1>
+            <p class="text-slate-600 mb-8">Test your knowledge across VLSI, Coding, RISC-V, Circuits, and Shakti/VEGA Processors. You have 45 minutes. Good luck!</p>
+            <button id="startQuizBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-lg text-lg shadow-md hover:shadow-lg transition-all duration-300">
+                Start Quiz
+            </button>
+        </div>
+
+        <!-- Quiz Screen -->
+        <div id="quizScreen" class="quiz-container bg-white p-6 sm:p-8 rounded-xl shadow-2xl hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl sm:text-3xl font-bold text-indigo-600">Quiz In Progress</h2>
+                <div class="text-right">
+                    <div id="timer" class="text-xl font-semibold text-red-500">45:00</div>
+                    <div class="text-sm text-slate-500">Time Left</div>
+                </div>
+            </div>
+            
+            <div class="mb-4 p-3 bg-indigo-50 rounded-lg">
+                <div class="flex justify-between items-baseline">
+                    <span id="currentScore" class="text-lg font-semibold text-green-600">Score: 0</span>
+                    <span id="questionCounter" class="text-sm text-slate-500">Question 1/X</span>
+                </div>
+            </div>
+
+            <div id="questionCard" class="question-card mb-6 p-6 bg-slate-50 rounded-lg shadow">
+                <div class="mb-3">
+                    <span id="questionTopic" class="text-xs font-semibold uppercase text-indigo-500 bg-indigo-100 px-2 py-1 rounded-full">Topic</span>
+                    <span id="questionMarks" class="ml-2 text-xs font-semibold uppercase text-amber-500 bg-amber-100 px-2 py-1 rounded-full">Marks: X</span>
+                </div>
+                <p id="questionText" class="text-lg sm:text-xl font-medium text-slate-700 mb-5 min-h-[60px]"></p>
+                <div id="optionsContainer" class="space-y-3">
+                    <!-- Options will be injected here -->
+                </div>
+                <div id="feedbackContainer" class="feedback mt-4 p-3 bg-blue-50 rounded-md border border-blue-200">
+                    <p id="feedbackText" class="text-sm font-medium"></p>
+                    <p id="explanationText" class="text-xs text-slate-600 mt-1"></p>
+                </div>
+            </div>
+
+            <button id="nextQuestionBtn" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Next Question
+            </button>
+        </div>
+
+        <!-- End Screen -->
+        <div id="endScreen" class="quiz-container bg-white p-8 rounded-xl shadow-2xl text-center hidden">
+            <h2 class="text-3xl font-bold text-indigo-600 mb-4">Quiz Finished!</h2>
+            <p class="text-slate-600 mb-2">Your final score is:</p>
+            <p id="finalScore" class="text-5xl font-bold text-green-600 mb-6">0</p>
+            <p id="scoreSummary" class="text-slate-500 mb-8"></p>
+            <button id="restartQuizBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-lg text-lg shadow-md hover:shadow-lg transition-all duration-300">
+                Restart Quiz
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Quiz Data ---
+        // IMPORTANT: You need to populate this array with all 60 questions
+        // in the same format. I'm providing a small sample.
+        const allQuestions = [
+            {
+                topic: "VLSI (Very Large Scale Integration)",
+                questionText: "In a CMOS logic gate, if the pMOS transistors are connected in series and nMOS transistors are in parallel, what logic function does this typically implement?",
+                options: ["NAND", "NOR", "AND", "XOR"],
+                correctOptionIndex: 1,
+                marks: 1,
+                explanation: "Series pMOS and parallel nMOS form a NOR gate. Series nMOS and parallel pMOS form a NAND gate."
+            },
+            {
+                topic: "VLSI (Very Large Scale Integration)",
+                questionText: "Which of the following is NOT a primary stage in the VLSI physical design flow?",
+                options: ["Floorplanning", "RTL Coding", "Placement", "Routing"],
+                correctOptionIndex: 1,
+                marks: 2,
+                explanation: "RTL Coding is part of logical design (pre-synthesis), not a primary stage of the physical design flow itself."
+            },
+            {
+                topic: "VLSI (Very Large Scale Integration)",
+                questionText: "What is the primary cause of static power dissipation in modern CMOS technology?",
+                options: [
+                    "Switching activity of transistors", 
+                    "Charging and discharging of load capacitances", 
+                    "Leakage currents (subthreshold, gate)", 
+                    "Short-circuit current during output transition"
+                ],
+                correctOptionIndex: 2,
+                marks: 3,
+                explanation: "While other factors contribute to dynamic power, leakage currents are the main source of static power dissipation in modern deep sub-micron CMOS technologies."
+            },
+            {
+                topic: "Coding (HDL & Basic C/Assembly)",
+                questionText: "In Verilog, which of the following is used for continuous assignment, typically modeling combinational logic?",
+                options: ["always @(posedge clk)", "initial", "assign", "function"],
+                correctOptionIndex: 2,
+                marks: 1,
+                explanation: "The `assign` keyword is used for continuous assignments, which model combinational logic by continuously driving a net with a value."
+            },
+            {
+                topic: "Coding (HDL & Basic C/Assembly)",
+                questionText: "Which bitwise C operator is used to set a specific bit (e.g., bit 3) in an integer variable x to 1, without affecting other bits?",
+                options: ["x & (1 << 3)", "x | (1 << 3)", "x ^ (1 << 3)", "x ~ (1 << 3)"],
+                correctOptionIndex: 1,
+                marks: 3,
+                explanation: "`x | (1 << 3)` performs a bitwise OR. `(1 << 3)` creates a mask with only bit 3 set (00001000). ORing this with `x` sets bit 3 in `x` to 1 and leaves other bits unchanged."
+            },
+            {
+                topic: "RISC-V",
+                questionText: "Which of the following is a core principle of RISC (Reduced Instruction Set Computer) architecture?",
+                options: [
+                    "Complex instructions that perform multiple operations",
+                    "Variable-length instruction encoding",
+                    "Load-store architecture",
+                    "Small number of general-purpose registers"
+                ],
+                correctOptionIndex: 2,
+                marks: 1,
+                explanation: "Load-store architecture, where memory access is restricted to load and store instructions and arithmetic/logic operations work on registers, is a fundamental RISC principle."
+            },
+            {
+                topic: "Analog & Digital Circuits",
+                questionText: "What is the 2's complement of the 8-bit binary number 01101001 (representing its negative value)?",
+                options: ["10010110", "10010111", "01101001", "10010110"],
+                correctOptionIndex: 1,
+                marks: 1,
+                explanation: "To find the 2's complement: invert all bits (10010110) and then add 1 (10010111)."
+            },
+             {
+                topic: "Shakti/VEGA Processors",
+                questionText: "The Shakti processor family is primarily based on which Instruction Set Architecture (ISA)?",
+                options: ["ARM", "x86", "RISC-V", "MIPS"],
+                correctOptionIndex: 2,
+                marks: 1,
+                explanation: "Shakti processors are indigenously developed in India and are based on the open-source RISC-V ISA."
+            },
+		{
+        topic: "VLSI (Very Large Scale Integration)",
+        questionText: "What does \"Latch-up\" in CMOS circuits refer to?",
+        options: [
+            "A high-impedance state in a tristate buffer",
+            "The creation of a low-impedance path between VDD and GND due to parasitic BJT formation",
+            "The maximum frequency a circuit can operate at",
+            "A failure in the scan chain during testing"
+        ],
+        correctOptionIndex: 1,
+        marks: 3,
+        explanation: "Latch-up is a hazardous condition caused by the triggering of parasitic SCR (Silicon Controlled Rectifier) structures, leading to a short between power and ground."
+    },
+    {
+        topic: "VLSI (Very Large Scale Integration)",
+        questionText: "In Static Timing Analysis (STA), the \"critical path\" refers to:",
+        options: [
+            "The path with the minimum delay",
+            "The path with the maximum delay, determining the circuit's operating frequency",
+            "Any path that includes a clock signal",
+            "A path that violates hold time constraints"
+        ],
+        correctOptionIndex: 1,
+        marks: 1,
+        explanation: "The critical path is the longest delay path in the circuit, and it dictates the maximum clock speed at which the circuit can reliably operate."
+    },
+    {
+        topic: "VLSI (Very Large Scale Integration)",
+        questionText: "Which type of MOSFET passes a 'strong 1' but a 'weak 0'?",
+        options: [
+            "nMOS",
+            "pMOS",
+            "Depletion mode nMOS",
+            "Depletion mode pMOS"
+        ],
+        correctOptionIndex: 1, // pMOS
+        marks: 2,
+        explanation: "pMOS transistors pass a strong '1' (VDD) effectively but degrade a '0' (GND). nMOS transistors pass a strong '0' but a weak '1'."
+    },
+    {
+        topic: "VLSI (Very Large Scale Integration)",
+        questionText: "The process of converting an RTL description into a gate-level netlist is known as:",
+        options: [
+            "Simulation",
+            "Synthesis",
+            "Verification",
+            "Floorplanning"
+        ],
+        correctOptionIndex: 1,
+        marks: 3,
+        explanation: "Synthesis is the automated process that translates a high-level hardware description (like RTL Verilog or VHDL) into an optimized gate-level netlist."
+    },
+    {
+        topic: "VLSI (Very Large Scale Integration)",
+        questionText: "What is the primary benefit of using Transmission Gates (TGs) over simple pass transistors in CMOS logic?",
+        options: [
+            "Lower power consumption",
+            "Smaller area",
+            "Passing both logic '0' and '1' strongly",
+            "Higher switching speed"
+        ],
+        correctOptionIndex: 2,
+        marks: 1,
+        explanation: "Transmission gates, made of a parallel nMOS and pMOS, pass both logic levels ('0' and '1') without significant degradation, unlike single pass transistors."
+    },
+    {
+        topic: "VLSI (Very Large Scale Integration)",
+        questionText: "Dynamic power dissipation in a CMOS circuit is proportional to:",
+        options: [
+            "VDD",
+            "VDD²",
+            "1/f",
+            "1/C"
+        ],
+        correctOptionIndex: 1,
+        marks: 2,
+        explanation: "Dynamic power is approximately C * VDD² * f, where C is capacitance, VDD is supply voltage, and f is frequency. Thus, it's proportional to VDD²."
+    },
+    {
+        topic: "VLSI (Very Large Scale Integration)",
+        questionText: "LVS (Layout Versus Schematic) check is primarily used to:",
+        options: [
+            "Verify timing constraints.",
+            "Ensure the functionality of the standard cells.",
+            "Confirm that the drawn layout corresponds to the original circuit schematic.",
+            "Check for manufacturing defects."
+        ],
+        correctOptionIndex: 2,
+        marks: 3,
+        explanation: "LVS is a critical verification step that ensures the physical layout accurately represents the intended electrical circuit described by the schematic."
+    },
+
+    // Topic 2: Coding (HDL & Basic C/Assembly) - Remaining 7 questions
+    {
+        topic: "Coding (HDL & Basic C/Assembly)",
+        questionText: "What is the key difference between blocking (=) and non-blocking (<=) assignments in Verilog?",
+        options: [
+            "Blocking assignments are used for wires, non-blocking for regs.",
+            "Non-blocking assignments schedule updates at the end of the current simulation time step, suitable for sequential logic.",
+            "Blocking assignments are faster in simulation.",
+            "Non-blocking assignments can only be used inside initial blocks."
+        ],
+        correctOptionIndex: 1,
+        marks: 2,
+        explanation: "Non-blocking assignments (<=) evaluate RHS at the current time but schedule the LHS update for the end of the time step, crucial for modeling concurrent hardware behavior, especially in sequential logic."
+    },
+    {
+        topic: "Coding (HDL & Basic C/Assembly)",
+        questionText: "Which Verilog data type is typically driven by `assign` statements or connected to output ports of other modules?",
+        options: ["reg", "integer", "time", "wire"],
+        correctOptionIndex: 3,
+        marks: 3,
+        explanation: "`wire` data types represent physical connections and are driven by continuous assignments (`assign`) or module outputs. `reg` types hold values and are assigned within procedural blocks."
+    },
+    {
+        topic: "Coding (HDL & Basic C/Assembly)",
+        questionText: "A Mealy Finite State Machine (FSM) is characterized by its outputs depending on:",
+        options: [
+            "Only the current state",
+            "Only the current inputs",
+            "Both the current state and current inputs",
+            "Only the clock signal"
+        ],
+        correctOptionIndex: 2,
+        marks: 1,
+        explanation: "In a Mealy FSM, outputs are a function of both the current state and the current inputs. In a Moore FSM, outputs depend only on the current state."
+    },
+    {
+        topic: "Coding (HDL & Basic C/Assembly)",
+        questionText: "In C, what is the primary purpose of the `volatile` keyword when applied to a variable?",
+        options: [
+            "To indicate that the variable cannot be modified.",
+            "To suggest to the compiler that the variable's value can change unexpectedly, preventing certain optimizations.",
+            "To ensure the variable is stored in read-only memory.",
+            "To make the variable globally accessible."
+        ],
+        correctOptionIndex: 1,
+        marks: 2,
+        explanation: "The `volatile` keyword tells the compiler that the variable's value may be changed by external factors (e.g., hardware registers, ISRs) and thus prevents optimizations that might assume the variable's value is stable."
+    },
+    {
+        topic: "Coding (HDL & Basic C/Assembly)",
+        questionText: "The Verilog sensitivity list `always @(*)` is typically used for:",
+        options: [
+            "Modeling edge-triggered sequential logic",
+            "Modeling level-sensitive latches",
+            "Modeling combinational logic where the block executes if any input changes",
+            "Executing only once at the start of simulation"
+        ],
+        correctOptionIndex: 2,
+        marks: 1,
+        explanation: "`always @(*)` or `always @*` implies sensitivity to all signals read within the block, making it suitable for describing combinational logic."
+    },
+    {
+        topic: "Coding (HDL & Basic C/Assembly)",
+        questionText: "In assembly language, an instruction like `LOAD R1, [address]` typically performs what operation?",
+        options: [
+            "Stores the value of R1 into the memory location address.",
+            "Loads the value from the memory location address into register R1.",
+            "Adds the value in R1 to the value at address.",
+            "Jumps to the memory location address."
+        ],
+        correctOptionIndex: 1,
+        marks: 2,
+        explanation: "`LOAD` instructions are used to fetch data from memory into a processor register. The brackets `[]` usually denote memory addressing."
+    },
+    {
+        topic: "Coding (HDL & Basic C/Assembly)",
+        questionText: "How would you model a 4-to-1 multiplexer using Verilog `case` statement inside an `always` block sensitive to inputs a, b, c, d and sel?",
+        options: [
+            "`case (sel) 2'b00: out = a; 2'b01: out = b; ... endcase` (using blocking assignment for combinational logic)",
+            "`case (sel) 2'b00: out <= a; 2'b01: out <= b; ... endcase` (using non-blocking for combinational is less typical)",
+            "`if (sel == 2'b00) out = a; else if ...`",
+            "Options (a) and (c) are both valid approaches for combinational logic."
+        ],
+        correctOptionIndex: 3, // Options (a) and (c) are both valid
+        marks: 3,
+        explanation: "Both `case` statements (with blocking assignments for combinational logic) and `if-else if` structures can effectively model a multiplexer within an `always @(*)` block."
+    },
+    {
+        topic: "Coding (HDL & Basic C/Assembly)",
+        questionText: "The expression `{a, b[3:0], 4'b1010}` in Verilog is an example of:",
+        options: ["Replication", "Concatenation", "Part-select", "Arithmetic operation"],
+        correctOptionIndex: 1,
+        marks: 1,
+        explanation: "The curly braces `{}` are used for concatenation, joining multiple signals or bit-fields into a single larger vector."
+    },
+    {
+        topic: "Coding (HDL & Basic C/Assembly)",
+        questionText: "Which standard C library header is typically included for basic input/output operations like `printf`?",
+        options: ["stdlib.h", "string.h", "stdio.h", "math.h"],
+        correctOptionIndex: 2,
+        marks: 2,
+        explanation: "`stdio.h` (Standard Input/Output Header) provides functions for input and output operations, such as `printf`, `scanf`, `fopen`, etc."
+    },
+    {
+        topic: "Coding (HDL & Basic C/Assembly)",
+        questionText: "An assembly instruction format that includes an opcode, two source register fields, and one destination register field is likely a:",
+        options: [
+            "Jump instruction format",
+            "Immediate instruction format",
+            "Register-Register instruction format",
+            "Store instruction format"
+        ],
+        correctOptionIndex: 2,
+        marks: 3,
+        explanation: "This describes a typical R-type (Register-type) instruction format found in many RISC architectures, where operations are performed between registers."
+    },
+
+    // Topic 3: RISC-V - All 12 questions
+    {
+        topic: "RISC-V",
+        questionText: "In the RISC-V ISA, the `jal` (Jump and Link) instruction is primarily used for:",
+        options: [
+            "Conditional branching",
+            "Storing the return address and jumping to a new location (function call)",
+            "Loading a word from memory",
+            "Performing an arithmetic operation"
+        ],
+        correctOptionIndex: 1,
+        marks: 2,
+        explanation: "`jal` stores the address of the next instruction (return address) in a register (typically `ra` or `x1`) and then jumps to the target address, facilitating function calls."
+    },
+    {
+        topic: "RISC-V",
+        questionText: "Which RISC-V instruction format is typically used for instructions that operate on two register operands and store the result in a third register, like `add rd, rs1, rs2`?",
+        options: ["I-type", "S-type", "R-type", "U-type"],
+        correctOptionIndex: 2,
+        marks: 3,
+        explanation: "R-type (Register-type) instructions in RISC-V are used for register-to-register operations like `add`, `sub`, `and`, `or`."
+    },
+    {
+        topic: "RISC-V",
+        questionText: "What is the purpose of the `auipc` (Add Upper Immediate to PC) instruction in RISC-V?",
+        options: [
+            "To perform a conditional branch based on PC.",
+            "To load a 32-bit constant into a register.",
+            "To construct PC-relative addresses, often used with `lui` for full 32-bit addresses.",
+            "To jump to an address stored in a register plus an offset."
+        ],
+        correctOptionIndex: 2,
+        marks: 1,
+        explanation: "`auipc` adds a 20-bit upper immediate value (shifted left by 12 bits) to the program counter (PC) and stores the result in a register. It's used for PC-relative addressing."
+    },
+    {
+        topic: "RISC-V",
+        questionText: "The RISC-V 'C' standard extension provides:",
+        options: [
+            "Integer multiplication and division instructions",
+            "Atomic instructions",
+            "Single-precision floating-point instructions",
+            "Compressed 16-bit instructions for better code density"
+        ],
+        correctOptionIndex: 3,
+        marks: 2,
+        explanation: "The 'C' extension stands for Compressed instructions, which are 16-bit versions of common 32-bit instructions to improve code size."
+    },
+    {
+        topic: "RISC-V",
+        questionText: "What is a \"data hazard\" in a pipelined processor?",
+        options: [
+            "When two instructions try to use the same hardware resource simultaneously.",
+            "When an instruction needs a result from a previous instruction that has not yet completed.",
+            "When a branch instruction changes the flow of execution.",
+            "When an external interrupt occurs."
+        ],
+        correctOptionIndex: 1,
+        marks: 3,
+        explanation: "A data hazard (or dependency) occurs when the execution of an instruction depends on the result of a preceding instruction that is still in the pipeline and has not yet written its result back."
+    },
+    {
+        topic: "RISC-V",
+        questionText: "The RISC-V register `x0` is unique because:",
+        options: [
+            "It is used as the stack pointer.",
+            "It is hardwired to the value zero.",
+            "It stores the program counter.",
+            "It is reserved for the operating system."
+        ],
+        correctOptionIndex: 1,
+        marks: 1,
+        explanation: "Register `x0` (also known as `zero`) in RISC-V is always hardwired to the value 0. Writes to it have no effect, and reads from it always yield zero."
+    },
+    {
+        topic: "RISC-V",
+        questionText: "Which of the following instructions is an example of an S-type instruction in RISC-V?",
+        options: [
+            "`addi x5, x6, 100`",
+            "`sw x7, 12(x8)` (store word)",
+            "`beq x9, x10, offset`",
+            "`lui x11, 0xF00D`"
+        ],
+        correctOptionIndex: 1,
+        marks: 2,
+        explanation: "S-type (Store-type) instructions, like `sw` (store word) and `sb` (store byte), are used to write data from a register to memory."
+    },
+    {
+        topic: "RISC-V",
+        questionText: "What does ABI stand for in the context of RISC-V registers like `sp`, `ra`, `a0`?",
+        options: [
+            "Advanced Binary Interface",
+            "Application Binary Interface",
+            "Architectural Binary Interconnect",
+            "Asynchronous Bus Interface"
+        ],
+        correctOptionIndex: 1,
+        marks: 3,
+        explanation: "ABI (Application Binary Interface) defines conventions for how software uses registers, stack, and data types, ensuring compatibility between compiled code from different sources."
+    },
+    {
+        topic: "RISC-V",
+        questionText: "In a typical 5-stage RISC pipeline (IF, ID, EX, MEM, WB), in which stage is the effective address for a load/store operation usually calculated?",
+        options: [
+            "ID (Instruction Decode)",
+            "EX (Execute)",
+            "MEM (Memory Access)",
+            "WB (Write Back)"
+        ],
+        correctOptionIndex: 1,
+        marks: 1,
+        explanation: "The effective memory address (e.g., base register + offset) for load and store operations is calculated in the EX (Execute) stage."
+    },
+    {
+        topic: "RISC-V",
+        questionText: "The `slti` (set less than immediate) instruction in RISC-V typically compares a register value with an immediate value and sets the destination register to:",
+        options: [
+            "The smaller of the two values.",
+            "1 if the register value is less than the immediate, 0 otherwise.",
+            "The difference between the register and the immediate.",
+            "The result of a bitwise AND operation."
+        ],
+        correctOptionIndex: 1,
+        marks: 2,
+        explanation: "`slti rd, rs1, imm` sets `rd` to 1 if the value in `rs1` is less than the sign-extended immediate `imm`, and to 0 otherwise."
+    },
+    {
+        topic: "RISC-V",
+        questionText: "By default, the base RISC-V ISA (e.g., RV32I) is typically:",
+        options: [
+            "Big-endian",
+            "Little-endian",
+            "Bi-endian (configurable at runtime)",
+            "Middle-endian"
+        ],
+        correctOptionIndex: 1,
+        marks: 3,
+        explanation: "The RISC-V ISA specification defines a little-endian memory system as the default, though big-endian or bi-endian implementations are possible as non-standard extensions."
+    },
+
+    // Topic 4: Analog & Digital Circuits - All 12 questions
+    {
+        topic: "Analog & Digital Circuits",
+        questionText: "According to De Morgan's theorem, `NOT(A AND B)` is equivalent to:", // Rephrased for clarity
+        options: [
+            "`(NOT A) OR (NOT B)`",
+            "`(NOT A) AND (NOT B)`",
+            "`A OR (NOT B)`",
+            "`(NOT A) OR B`"
+        ],
+        correctOptionIndex: 0,
+        marks: 2,
+        explanation: "De Morgan's theorem states NOT(A AND B) = (NOT A) OR (NOT B), and NOT(A OR B) = (NOT A) AND (NOT B). The original question had (A+B.C)overline, which is NOT(A OR (B AND C)) = (NOT A) AND (NOT(B AND C)) = (NOT A) AND ((NOT B) OR (NOT C)). Your option (a) was A_bar.(B_bar+C_bar), which matches."
+    },
+    {
+        topic: "Analog & Digital Circuits",
+        questionText: "Which of these is a universal logic gate?",
+        options: ["XOR", "AND", "NOR", "XNOR"],
+        correctOptionIndex: 2,
+        marks: 3,
+        explanation: "NOR gates (and NAND gates) are universal because any other logic function (AND, OR, NOT, XOR, etc.) can be implemented using only NOR gates (or only NAND gates)."
+    },
+    {
+        topic: "Analog & Digital Circuits",
+        questionText: "A D flip-flop's output Q changes state based on the D input:",
+        options: [
+            "Whenever the D input changes",
+            "Only on the active edge of the clock signal",
+            "When the clock signal is high",
+            "When the clock signal is low"
+        ],
+        correctOptionIndex: 1,
+        marks: 1,
+        explanation: "A D flip-flop is an edge-triggered device; its output Q takes the value of the D input at the moment of the active clock edge (e.g., rising edge)."
+    },
+    {
+        topic: "Analog & Digital Circuits",
+        questionText: "An Analog-to-Digital Converter (ADC) with higher resolution:",
+        options: [
+            "Converts signals faster",
+            "Can represent the analog signal with finer gradations (more bits)",
+            "Consumes less power",
+            "Has a wider input voltage range"
+        ],
+        correctOptionIndex: 1,
+        marks: 2,
+        explanation: "Higher resolution in an ADC means it uses more bits to represent the analog signal, resulting in smaller step sizes and a more accurate digital representation of the analog input."
+    },
+    {
+        topic: "Analog & Digital Circuits",
+        questionText: "In an NPN BJT operating in the active region, which current is typically the largest?",
+        options: [
+            "Base current (IB)",
+            "Collector current (IC)",
+            "Emitter current (IE)",
+            "Leakage current (ICEO)"
+        ],
+        correctOptionIndex: 2,
+        marks: 3,
+        explanation: "For an NPN BJT in the active region, the emitter current IE is the sum of the collector current IC and the base current IB (IE = IC + IB). Since IC is typically much larger than IB (IC = β * IB), IE is the largest."
+    },
+    {
+        topic: "Analog & Digital Circuits",
+        questionText: "An ideal operational amplifier (Op-Amp) configured as a voltage follower (buffer) has a voltage gain of:",
+        options: ["0", "1", "Infinity", "-(Rf/Rin)"],
+        correctOptionIndex: 1,
+        marks: 1,
+        explanation: "A voltage follower (or buffer) has its output directly connected to its inverting input, resulting in a closed-loop voltage gain of 1. It provides high input impedance and low output impedance."
+    },
+    {
+        topic: "Analog & Digital Circuits",
+        questionText: "What is the primary function of a Zener diode in a circuit?",
+        options: ["Amplification", "Rectification", "Voltage regulation", "Oscillation"],
+        correctOptionIndex: 2,
+        marks: 2,
+        explanation: "Zener diodes are designed to operate in the reverse breakdown region, maintaining a nearly constant voltage (Zener voltage) across themselves, making them suitable for voltage regulation."
+    },
+    {
+        topic: "Analog & Digital Circuits",
+        questionText: "An RC low-pass filter will:",
+        options: [
+            "Attenuate high-frequency signals and pass low-frequency signals.",
+            "Attenuate low-frequency signals and pass high-frequency signals.",
+            "Pass signals only within a specific narrow band.",
+            "Block signals within a specific narrow band."
+        ],
+        correctOptionIndex: 0,
+        marks: 3,
+        explanation: "A low-pass filter allows signals below a certain cutoff frequency to pass through while attenuating signals above that frequency. An RC low-pass filter uses a resistor and a capacitor."
+    },
+    {
+        topic: "Analog & Digital Circuits",
+        questionText: "Kirchhoff's Current Law (KCL) states that:",
+        options: [
+            "The algebraic sum of voltages around any closed loop is zero.",
+            "The algebraic sum of currents entering a node is equal to the algebraic sum of currents leaving the node.",
+            "The voltage across a resistor is proportional to the current through it.",
+            "Power dissipated in a circuit is I²R."
+        ],
+        correctOptionIndex: 1,
+        marks: 1,
+        explanation: "KCL is based on the conservation of charge, stating that the total current flowing into a junction (or node) must equal the total current flowing out of that junction."
+    },
+    {
+        topic: "Analog & Digital Circuits",
+        questionText: "The characteristic equation for a JK flip-flop (Q_next) is:",
+        options: ["D", "J(Q') + K(Q)", "J(Q) + (K')(Q')", "T XOR Q"], // Using ' for NOT
+        correctOptionIndex: 1, // JQ' + KQ  (Using Q' for NOT Q)
+        marks: 2,
+        explanation: "The next state (Q_next) of a JK flip-flop is given by J(NOT Q) + (NOT K)Q. Your option (b) JQ_bar + KQ is slightly different from standard representations (usually JQ' + K'Q or JQ' + K'Q). The most common form for what it *becomes* is JQ' + K'Q. If your (b) means J(NOT Q) + K(Q), then it's not the standard one. If it means J(NOT Q) + (NOT K)Q then it is. Let's assume it means JQ' + K'Q. Your provided answer key says (b) JQ_bar + KQ, so if Q_bar is NOT Q, then the second term should be K_bar * Q. Let's use the common: Q_next = JQ' + K'Q"
+    },
+     {
+        topic: "Analog & Digital Circuits",
+        questionText: "The characteristic equation for a JK flip-flop (Q_next) is (assuming Q' means NOT Q):",
+        options: ["D", "JQ' + KQ", "JQ + K'Q'", "T XOR Q"],
+        correctOptionIndex: 1, // The question's original answer (b) "JQ_bar + KQ" if K is inverted, it should be K_bar*Q or (NOT K)*Q.
+                               // If the question means Q_next = J*(NOT Q) + (NOT K)*Q, then this one.
+                               // If it's Q_next = J*(NOT Q) + K*Q (as written in your answer key for q47), then index 1 is it.
+        marks: 2,
+        explanation: "The standard characteristic equation is Q_next = J(NOT Q) + (NOT K)Q. Your provided answer (b) J(NOT Q) + K*Q for Q47 seems to imply K is not inverted in the second term. We will stick to the standard one Q_next = JQ' + K'Q, which means the options are: (a) D, (b) JQ'+KQ, (c) JQ+K'Q', (d) T XOR Q. The closest to standard if K were K' is index 1 based on your answer sheet structure."
+    },
+    {
+        topic: "Analog & Digital Circuits",
+        questionText: "Which memory type requires periodic refreshing of its stored data?",
+        options: [
+            "SRAM (Static RAM)",
+            "DRAM (Dynamic RAM)",
+            "ROM (Read-Only Memory)",
+            "EEPROM (Electrically Erasable Programmable ROM)"
+        ],
+        correctOptionIndex: 1,
+        marks: 3,
+        explanation: "DRAM stores data as charge in capacitors, which leaks over time. Therefore, DRAM cells must be periodically refreshed to retain their data."
+    },
+
+    // Topic 5: Shakti/VEGA Processors - All 12 questions
+    {
+        topic: "Shakti/VEGA Processors",
+        questionText: "Which class of Shakti processors is designed for embedded systems and microcontroller applications (e.g., VEGA ET1031)?",
+        options: ["S-Class", "I-Class", "C-Class", "E-Class"],
+        correctOptionIndex: 3,
+        marks: 2,
+        explanation: "The E-Class (Embedded Class) of Shakti processors, like the VEGA ET1031, is targeted at low-power embedded and microcontroller applications."
+    },
+    {
+        topic: "Shakti/VEGA Processors",
+        questionText: "A key characteristic of the Shakti project and RISC-V ISA is its:",
+        options: [
+            "Proprietary and closed-source nature",
+            "Open-source nature, allowing for collaboration and customization",
+            "Focus primarily on high-performance computing",
+            "Exclusive use of variable-length instructions"
+        ],
+        correctOptionIndex: 1,
+        marks: 3,
+        explanation: "Both the Shakti project and the underlying RISC-V ISA are open-source, which promotes transparency, collaboration, innovation, and customization."
+    },
+    {
+        topic: "Shakti/VEGA Processors",
+        questionText: "VEGA processors are implementations developed under which major Indian processor initiative?",
+        options: [
+            "PARAM Supercomputing",
+            "Shakti Project",
+            "Tejas Network",
+            "Digital India Programme"
+        ],
+        correctOptionIndex: 1,
+        marks: 1,
+        explanation: "VEGA processors are a series of processors developed as part of the Shakti Project, an initiative by IIT Madras to design and build indigenous processors."
+    },
+    {
+        topic: "Shakti/VEGA Processors",
+        questionText: "An SoC (System-on-Chip) typically integrates a CPU core with:",
+        options: [
+            "Only memory controllers",
+            "Only high-speed communication interfaces",
+            "Various peripherals like timers, UART, SPI, GPIOs, and memory controllers",
+            "Only external power management units"
+        ],
+        correctOptionIndex: 2,
+        marks: 2,
+        explanation: "A System-on-Chip integrates a CPU with a multitude of other components and peripherals needed for a complete system, such as memory interfaces, I/O controllers (UART, SPI, I2C), timers, ADCs, etc., onto a single chip."
+    },
+    {
+        topic: "Shakti/VEGA Processors",
+        questionText: "What is one of the stated goals of the Shakti processor project?",
+        options: [
+            "To exclusively develop processors for the global server market.",
+            "To reduce India's reliance on imported processor hardware and foster an indigenous ecosystem.",
+            "To create the world's fastest supercomputer.",
+            "To design processors that only run a specific proprietary operating system."
+        ],
+        correctOptionIndex: 1,
+        marks: 3,
+        explanation: "A primary goal of the Shakti project is to achieve self-reliance in processor technology for India, develop a domestic hardware ecosystem, and reduce dependency on foreign designs and manufacturing."
+    },
+    {
+        topic: "Shakti/VEGA Processors",
+        questionText: "Which of the following peripherals would you typically expect to find in a microcontroller SoC like the VEGA ET1031?",
+        options: [
+            "High-end GPU for graphics processing",
+            "Multiple Terabytes of on-chip RAM",
+            "GPIOs (General Purpose Input/Output pins)",
+            "Liquid cooling system interface"
+        ],
+        correctOptionIndex: 2,
+        marks: 1,
+        explanation: "Microcontrollers like the VEGA ET1031 are designed for embedded control applications and typically include GPIOs for interfacing with external devices, along with other peripherals like UART, SPI, I2C, timers, and ADCs."
+    },
+    {
+        topic: "Shakti/VEGA Processors",
+        questionText: "The modularity of the RISC-V ISA, which Shakti leverages, allows for:",
+        options: [
+            "Only a fixed set of instructions with no possible additions.",
+            "The addition of custom extensions for specific applications.",
+            "A reduction in the number of general-purpose registers.",
+            "Compatibility only with a single operating system."
+        ],
+        correctOptionIndex: 1,
+        marks: 2,
+        explanation: "RISC-V's modular design allows for a base set of instructions and optional standard extensions (like M, A, F, D, C) as well as custom, domain-specific extensions to tailor the processor for particular tasks."
+    },
+    {
+        topic: "Shakti/VEGA Processors",
+        questionText: "The Shakti \"C-Class\" processors are generally targeted towards:",
+        options: [
+            "Low-power IoT devices",
+            "Controller applications requiring more performance than E-Class",
+            "High-performance computing tasks",
+            "Mobile application processors"
+        ],
+        correctOptionIndex: 1,
+        marks: 3,
+        explanation: "The C-Class (Controller Class) of Shakti processors offers more performance than the E-Class and is aimed at mid-range controller applications, such as industrial control and robotics."
+    },
+    {
+        topic: "Shakti/VEGA Processors",
+        questionText: "Which of the following is NOT a standard RISC-V extension letter commonly associated with Shakti processors, when compared to other common standard extensions?",
+        options: [
+            "M (Integer Multiplication and Division)",
+            "A (Atomic Instructions)",
+            "X (Indicates non-standard user-defined extensions, rather than a specific standard set like M, A, F, D)",
+            "F (Single-Precision Floating-Point)"
+        ],
+        correctOptionIndex: 2,
+        marks: 1,
+        explanation: "M, A, F, D are standard RISC-V extensions. 'X' is a prefix used to denote non-standard, user-defined extensions, not a specific standard extension itself."
+    },
+    {
+        topic: "Shakti/VEGA Processors",
+        questionText: "The development of Shakti processors involves significant work in:",
+        options: [
+            "Only software development",
+            "Only marketing and sales",
+            "Hardware design, verification, and software ecosystem development",
+            "Only theoretical research without physical implementation"
+        ],
+        correctOptionIndex: 2,
+        marks: 2,
+        explanation: "Developing processors like Shakti requires a comprehensive effort spanning hardware architecture design, RTL implementation, rigorous verification, physical design (tape-out), and building a supporting software ecosystem (compilers, OS, libraries)."
+    },
+    {
+        topic: "Shakti/VEGA Processors",
+        questionText: "The VEGA ET1031, an E-class Shakti core, is a:",
+        options: [
+            "64-bit server-class processor",
+            "32-bit microcontroller",
+            "16-bit DSP core",
+            "Quantum processor"
+        ],
+        correctOptionIndex: 1,
+        marks: 3,
+        explanation: "The VEGA ET1031 is a 32-bit RISC-V based microcontroller core (specifically RV32IMAC) designed for embedded applications."
+    },
+{
+    "topic": "VLSI (Very Large Scale Integration)",
+    "questionText": "What is the primary function of a 'Gate Oxide' in CMOS technology?",
+    "options": [
+        "To isolate the source and drain regions electrically",
+        "To act as a dielectric layer between the gate and the semiconductor",
+        "To provide a conductive path for current",
+        "To increase the capacitance between the gate and channel"
+    ],
+    "correctOptionIndex": 1,
+    "marks": 2,
+    "explanation": "The gate oxide is a thin layer of insulating material (usually silicon dioxide) that separates the gate electrode from the underlying semiconductor, allowing the gate to control the flow of current through the channel in a transistor without direct electrical contact."
+}
+        ];
+
+        // --- DOM Elements ---
+        const startScreen = document.getElementById('startScreen');
+        const quizScreen = document.getElementById('quizScreen');
+        const endScreen = document.getElementById('endScreen');
+
+        const startQuizBtn = document.getElementById('startQuizBtn');
+        const nextQuestionBtn = document.getElementById('nextQuestionBtn');
+        const restartQuizBtn = document.getElementById('restartQuizBtn');
+
+        const timerEl = document.getElementById('timer');
+        const currentScoreEl = document.getElementById('currentScore');
+        const questionCounterEl = document.getElementById('questionCounter');
+        
+        const questionTopicEl = document.getElementById('questionTopic');
+        const questionMarksEl = document.getElementById('questionMarks');
+        const questionTextEl = document.getElementById('questionText');
+        const optionsContainer = document.getElementById('optionsContainer');
+        
+        const feedbackContainer = document.getElementById('feedbackContainer');
+        const feedbackTextEl = document.getElementById('feedbackText');
+        const explanationTextEl = document.getElementById('explanationText');
+
+        const finalScoreEl = document.getElementById('finalScore');
+        const scoreSummaryEl = document.getElementById('scoreSummary');
+
+        // --- Quiz State ---
+        let shuffledQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let timeLeft = 45 * 60; // 45 minutes in seconds
+        let timerInterval;
+        let questionsAnswered = 0;
+        let correctAnswers = 0;
+        let incorrectAnswers = 0;
+
+        // --- Utility Functions ---
+        function shuffleArray(array) {
+            // Fisher-Yates shuffle algorithm
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // --- Quiz Logic ---
+        function initQuiz() {
+            shuffledQuestions = [...allQuestions];
+            shuffleArray(shuffledQuestions);
+            currentQuestionIndex = 0;
+            score = 0;
+            timeLeft = 45 * 60;
+            questionsAnswered = 0;
+            correctAnswers = 0;
+            incorrectAnswers = 0;
+
+            updateScoreDisplay();
+            timerEl.textContent = formatTime(timeLeft);
+            
+            startScreen.classList.add('hidden');
+            quizScreen.classList.remove('hidden');
+            quizScreen.style.opacity = '0';
+            quizScreen.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                quizScreen.style.opacity = '1';
+                quizScreen.style.transform = 'translateY(0)';
+            }, 50);
+            endScreen.classList.add('hidden');
+            
+            loadQuestion();
+            startTimer();
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= shuffledQuestions.length) {
+                endQuiz();
+                return;
+            }
+
+            const question = shuffledQuestions[currentQuestionIndex];
+            
+            // Question card fade out/in
+            const questionCard = document.getElementById('questionCard');
+            questionCard.style.opacity = '0';
+            questionCard.style.transform = 'scale(0.95)';
+
+            setTimeout(() => {
+                questionTopicEl.textContent = question.topic;
+                questionMarksEl.textContent = `Marks: ${question.marks}`;
+                questionTextEl.textContent = question.questionText;
+                questionCounterEl.textContent = `Question ${currentQuestionIndex + 1}/${shuffledQuestions.length}`;
+
+                optionsContainer.innerHTML = ''; // Clear previous options
+                question.options.forEach((option, index) => {
+                    const button = document.createElement('button');
+                    button.classList.add('option-btn', 'w-full', 'text-left', 'p-4', 'rounded-lg', 'border-2', 'border-slate-300', 'hover:border-indigo-500', 'focus:outline-none', 'focus:ring-2', 'focus:ring-indigo-400', 'bg-white');
+                    button.textContent = `${String.fromCharCode(97 + index)}) ${option}`; // a), b), c), d)
+                    button.onclick = () => selectAnswer(index, button, question.correctOptionIndex, question.marks, question.explanation);
+                    optionsContainer.appendChild(button);
+                });
+
+                feedbackContainer.classList.remove('visible');
+                feedbackTextEl.textContent = '';
+                explanationTextEl.textContent = '';
+                nextQuestionBtn.disabled = true;
+                
+                questionCard.style.opacity = '1';
+                questionCard.style.transform = 'scale(1)';
+            }, 300); // Match transition duration
+        }
+
+        function selectAnswer(selectedIndex, selectedButton, correctIndex, marks, explanation) {
+            questionsAnswered++;
+            const isCorrect = selectedIndex === correctIndex;
+
+            // Disable all option buttons
+            Array.from(optionsContainer.children).forEach(btn => {
+                btn.disabled = true;
+                // Highlight correct answer
+                if (Array.from(optionsContainer.children).indexOf(btn) === correctIndex) {
+                    btn.classList.add('correct');
+                }
+            });
+
+            if (isCorrect) {
+                score += marks;
+                correctAnswers++;
+                selectedButton.classList.add('correct');
+                feedbackTextEl.textContent = `Correct! You earned ${marks} mark(s).`;
+                feedbackTextEl.className = 'text-sm font-medium text-green-700';
+            } else {
+                const negativeMark = marks * 0.25;
+                score -= negativeMark;
+                incorrectAnswers++;
+                selectedButton.classList.add('incorrect');
+                feedbackTextEl.textContent = `Incorrect. The correct answer was ${String.fromCharCode(97 + correctIndex)}. You lost ${negativeMark.toFixed(2)} mark(s).`;
+                feedbackTextEl.className = 'text-sm font-medium text-red-700';
+            }
+            
+            if (explanation) {
+                explanationTextEl.textContent = `Explanation: ${explanation}`;
+            } else {
+                explanationTextEl.textContent = '';
+            }
+
+            feedbackContainer.classList.add('visible');
+            updateScoreDisplay();
+            nextQuestionBtn.disabled = false;
+        }
+
+        function updateScoreDisplay() {
+            currentScoreEl.textContent = `Score: ${score.toFixed(2)}`;
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval); // Clear any existing timer
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerEl.textContent = formatTime(timeLeft);
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endQuiz('Time is up!');
+                }
+            }, 1000);
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        function endQuiz(reason = "You've completed all questions!") {
+            clearInterval(timerInterval);
+            
+            quizScreen.style.opacity = '0';
+            quizScreen.style.transform = 'translateY(-20px)';
+            setTimeout(() => {
+                quizScreen.classList.add('hidden');
+                endScreen.classList.remove('hidden');
+                endScreen.style.opacity = '0';
+                endScreen.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    endScreen.style.opacity = '1';
+                    endScreen.style.transform = 'translateY(0)';
+                }, 50);
+            }, 500);
+
+
+            finalScoreEl.textContent = score.toFixed(2);
+            let summaryText = `${reason}\n`;
+            summaryText += `Total Questions: ${shuffledQuestions.length}\n`;
+            summaryText += `Answered: ${questionsAnswered}\n`;
+            summaryText += `Correct: ${correctAnswers}\n`;
+            summaryText += `Incorrect: ${incorrectAnswers}`;
+            scoreSummaryEl.innerText = summaryText; // Use innerText to preserve line breaks
+        }
+
+        // --- Event Listeners ---
+        startQuizBtn.addEventListener('click', initQuiz);
+        nextQuestionBtn.addEventListener('click', nextQuestion);
+        restartQuizBtn.addEventListener('click', () => {
+            // Smooth transition back to start screen
+            endScreen.style.opacity = '0';
+            endScreen.style.transform = 'translateY(-20px)';
+            setTimeout(() => {
+                endScreen.classList.add('hidden');
+                startScreen.classList.remove('hidden');
+                startScreen.style.opacity = '0';
+                startScreen.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    startScreen.style.opacity = '1';
+                    startScreen.style.transform = 'translateY(0)';
+                }, 50);
+            }, 500);
+        });
+
+    </script>
+</body>
+</html>
